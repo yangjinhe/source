@@ -8,13 +8,13 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=procd
-PKG_RELEASE:=$(AUTORELEASE)
+PKG_RELEASE:=1
 
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL=$(PROJECT_GIT)/project/procd.git
-PKG_MIRROR_HASH:=0e506062a992f77979bd59eb51fb5d500e45197cc7bfba3a9302415d754dbfd1
-PKG_SOURCE_DATE:=2022-01-11
-PKG_SOURCE_VERSION:=ac2b8b365bdbcbf292f77409d180ec3c0963faf3
+PKG_MIRROR_HASH:=cad8681f04922a3ba05363330a2896a598572a2beee980692f1cd7c8d7136b5e
+PKG_SOURCE_DATE:=2025-01-30
+PKG_SOURCE_VERSION:=7fcb5a275fcff5ab697357c86ce568c71128b982
 CMAKE_INSTALL:=1
 
 PKG_LICENSE:=GPL-2.0
@@ -22,10 +22,10 @@ PKG_LICENSE_FILES:=
 
 PKG_MAINTAINER:=John Crispin <john@phrozen.org>
 
+PKG_BUILD_FLAGS:=lto
 PKG_ASLR_PIE_REGULAR:=1
 PKG_CONFIG_DEPENDS:= \
-	CONFIG_TARGET_INIT_PATH CONFIG_KERNEL_SECCOMP \
-	CONFIG_PROCD_SHOW_BOOT CONFIG_PROCD_ZRAM_TMPFS \
+	CONFIG_TARGET_INIT_PATH CONFIG_KERNEL_SECCOMP CONFIG_PROCD_SHOW_BOOT \
 	CONFIG_KERNEL_NAMESPACES CONFIG_PACKAGE_procd-ujail CONFIG_PACKAGE_procd-seccomp
 
 include $(INCLUDE_DIR)/package.mk
@@ -36,15 +36,11 @@ ifeq ($(DUMP),)
 endif
 
 CMAKE_OPTIONS += -DEARLY_PATH="$(TARGET_INIT_PATH)"
-TARGET_LDFLAGS += $(if $(CONFIG_USE_GLIBC),-lrt)
-
-TARGET_CFLAGS += -flto
-TARGET_LDFLAGS += -flto
 
 define Package/procd/Default
   SECTION:=base
   CATEGORY:=Base system
-  DEPENDS:=+ubusd +ubus +libjson-script +ubox +USE_GLIBC:librt +libubox \
+  DEPENDS:=+ubusd +ubus +libjson-script +ubox +libubox +libudebug \
 	  +libubus +libblobmsg-json +libjson-c +jshn
   TITLE:=OpenWrt system process manager
   USERID:=:dialout=20 :audio=29
@@ -75,7 +71,7 @@ endef
 define Package/procd-seccomp
   SECTION:=base
   CATEGORY:=Base system
-  DEPENDS:=@SECCOMP +libubox +libblobmsg-json
+  DEPENDS:=@USE_SECCOMP +libubox +libblobmsg-json
   TITLE:=OpenWrt process seccomp helper + utrace
 endef
 
@@ -96,10 +92,6 @@ config PROCD_SHOW_BOOT
 	default n
 	prompt "Print the shutdown to the console as well as logging it to syslog"
 
-config PROCD_ZRAM_TMPFS
-	bool
-	default n
-	prompt "Mount /tmp using zram."
 endmenu
 endef
 
@@ -109,10 +101,6 @@ endif
 
 ifeq ($(CONFIG_PROCD_SHOW_BOOT),y)
   CMAKE_OPTIONS += -DSHOW_BOOT_ON_CONSOLE=1
-endif
-
-ifeq ($(CONFIG_PROCD_ZRAM_TMPFS),y)
-  CMAKE_OPTIONS += -DZRAM_TMPFS=1
 endif
 
 ifdef CONFIG_PACKAGE_procd-ujail
@@ -130,6 +118,7 @@ define Package/procd/install
 	$(INSTALL_BIN) ./files/reload_config $(1)/sbin/
 	$(INSTALL_CONF) ./files/hotplug*.json $(1)/etc/
 	$(INSTALL_DATA) ./files/procd.sh $(1)/lib/functions/
+	$(INSTALL_BIN) ./files/service $(1)/sbin/service
 endef
 
 Package/procd-selinux/install = $(Package/procd/install)
